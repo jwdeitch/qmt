@@ -1,23 +1,33 @@
+extern crate iron;
+
 use std::process::Command;
 use std::env;
+use iron::prelude::*;
+use iron::status;
+
+struct Arguments {
+    pub input_file_name: String,
+    pub input_file_extension: String
+}
+
+struct OutputPackage {
+    stdout: String,
+    stderr: String,
+    status: std::process::ExitStatus
+}
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    assert_eq!(args.len(), 2);
-    let input_file: Vec<String> = args[1].split(".").map(|s| s.to_string()).collect();
-    assert_eq!(input_file.len(), 2);
-    let input_file_name = &input_file[0];
-    let input_file_extension = &input_file[1];
 
-    println!("Starting to chunk: {}.{}", input_file_name, input_file_extension);
+
+
+}
+
+fn chunk(file_name: String, file_ext: String) {
+    let args = parse_args();
+
+    println!("Starting to chunk: {}.{}", args.input_file_name, args.input_file_extension);
 
     assert!(1 == 2);
-
-    struct OutputPackage {
-        stdout: String,
-        stderr: String,
-        status: std::process::ExitStatus
-    }
 
     let output = Command::new("ffmpeg")
         .args(&["-i", "/Users/jordan1/IdeaProjects/untitled6/input.mp4"])
@@ -36,8 +46,18 @@ fn main() {
         status: output.status
     };
 
-    println!("Finished chunking on: {}.{}", input_file_name, input_file_extension);
-
+    println!("Finished chunking on: {}.{}", args.input_file_name, args.input_file_extension);
 }
 
+fn parse_args() -> Arguments {
+    let args: Vec<String> = env::args().collect();
+    assert_eq!(args.len(), 2);
+    let input_file: Vec<String> = args[1].split(".").map(|s| s.to_string()).collect();
+    assert_eq!(input_file.len(), 2);
+
+    return Arguments{
+        input_file_name: input_file[0].to_owned(),
+        input_file_extension: input_file[1].to_owned()
+    }
+}
 
