@@ -5,3 +5,5 @@ authors = ["jwdeitch <jwdeitch@gmail.com>"]
 
 [dependencies]
 iron = "0.5.*"
+rusoto_core = "0.28.0"
+rusoto_sqs = "0.28.0"

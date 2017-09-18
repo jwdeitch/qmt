@@ -2,13 +2,10 @@ extern crate iron;
 
 use std::process::Command;
 use std::env;
-use iron::prelude::*;
-use iron::status;
-
-struct Arguments {
-    pub input_file_name: String,
-    pub input_file_extension: String
-}
+use std::path::PathBuf;
+use std::fs;
+//use iron::prelude::*;
+//use iron::status;
 
 struct OutputPackage {
     stdout: String,
@@ -17,47 +14,54 @@ struct OutputPackage {
 }
 
 fn main() {
-
-
-
+    //    fn hello_world(_: &mut Request) -> IronResult<Response> {
+    //        Ok(Response::with((status::Ok, "Hello World!")))
+    //    }
+    //
+    //    let _server = Iron::new(hello_world).http("localhost:3000").unwrap();
+    //    println!("On 3000");
+    chunk()
 }
 
-fn chunk(file_name: String, file_ext: String) {
+fn chunk() {
     let args = parse_args();
 
-    println!("Starting to chunk: {}.{}", args.input_file_name, args.input_file_extension);
+    let canonical_filename = fs::canonicalize(
+        args.file_name()
+            .expect("No input filename found"))
+        .expect("Can't canonicalize input argument");
+
+    let file_ext = &args.extension()
+        .expect("No input file extension found")
+        .to_string_lossy()
+        .into_owned();
+    println!("Starting: {}", canonical_filename.to_string_lossy());
 
     assert!(1 == 2);
 
     let output = Command::new("ffmpeg")
-        .args(&["-i", "/Users/jordan1/IdeaProjects/untitled6/input.mp4"])
+        .args(&["-i", &canonical_filename.to_string_lossy().into_owned()])
         .args(&["-c", "copy"])
         .args(&["-f", "segment"])
         .args(&["-segment_time", "20"])
         .args(&["-reset_timestamps", "1"])
         .args(&["-map", "0"])
-        .arg("output-%03d.mp4")
+        .arg(&(String::from("output-%03d.") + &file_ext))
         .output()
         .expect("failed to execute process");
 
-    let package = OutputPackage{
+    let package = OutputPackage {
         stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
         stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         status: output.status
     };
 
-    println!("Finished chunking on: {}.{}", args.input_file_name, args.input_file_extension);
+    println!("Finishing: {}", canonical_filename.to_string_lossy());
 }
 
-fn parse_args() -> Arguments {
+fn parse_args() -> PathBuf {
     let args: Vec<String> = env::args().collect();
-    assert_eq!(args.len(), 2);
-    let input_file: Vec<String> = args[1].split(".").map(|s| s.to_string()).collect();
-    assert_eq!(input_file.len(), 2);
 
-    return Arguments{
-        input_file_name: input_file[0].to_owned(),
-        input_file_extension: input_file[1].to_owned()
-    }
+    return PathBuf::from(args[1].to_owned());
 }
 
