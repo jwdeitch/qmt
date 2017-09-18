@@ -4,7 +4,8 @@ version = "0.1.0"
 dependencies = [
  "iron 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusoto_core 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rusoto_sqs 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rusoto_s3 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.1.38 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -283,6 +284,11 @@ version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "md5"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "memchr"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -512,12 +518,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "rusoto_sqs"
+name = "rusoto_s3"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "hyper 0.10.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "md5 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusoto_core 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-serialize 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)",
  "xml-rs 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -843,6 +851,7 @@ dependencies = [
 "checksum magenta 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4bf0336886480e671965f794bc9b6fce88503563013d1bfb7a502c81fe3ac527"
 "checksum magenta-sys 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "40d014c7011ac470ae28e2f76a02bfea4a8480f73e701353b49ad7a8d75f4699"
 "checksum matches 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "100aabe6b8ff4e4a7e32c1c13523379802df0772b82466207ac25b013f193376"
+"checksum md5 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "11f2f3240857d306c26118e2e92a5eaf8990df379e3d96573ee6c92cdbf58a81"
 "checksum memchr 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "1dbccc0e46f1ea47b9f17e6d67c5a96bd27030519c519c9c91327e31275a47b4"
 "checksum mime 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "ba626b8a6de5da682e1caa06bdb42a335aee5a84db8e5046a3e8ab17ba0a3ae0"
 "checksum modifier 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "41f5c9112cb662acd3b204077e0de5bc66305fa8df65c8019d5adb10e9ab6e58"
@@ -868,7 +877,7 @@ dependencies = [
 "checksum ring 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1f2a6dc7fc06a05e6de183c5b97058582e9da2de0c136eafe49609769c507724"
 "checksum rusoto_core 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d7b3e612b047b8bb093bba0446523b12f7eedafc0472c5c1beecb6f1caf5e9d6"
 "checksum rusoto_credential 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "79be5ba8b6a099306d4862556b98ddc21bf0ca518aef77e091c7abeb50f5cb07"
-"checksum rusoto_sqs 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c2c351d68661059a09fb6feaf524fc19e02a3141e398d0a6f4d2d1a2af0b8dee"
+"checksum rusoto_s3 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)" = "6ef8227cfa258a27bd69bf74d1ad6e9b0cad710a529cf66d7effbd460923c851"
 "checksum rustc-serialize 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)" = "dcf128d1287d2ea9d80910b5f1120d0b8eede3fbf1abe91c40d39ea7d51e6fda"
 "checksum rustc_version 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b9743a7670d88d5d52950408ecdb7c71d8986251ab604d4689dd2ca25c9bca69"
 "checksum safemem 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e27a8b19b835f7aea908818e871f5cc3a5a186550c30773be987e155e8163d8f"

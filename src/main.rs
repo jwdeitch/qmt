@@ -1,9 +1,10 @@
 extern crate iron;
+extern crate time;
 
 use std::process::Command;
-use std::env;
 use std::path::PathBuf;
 use std::fs;
+use std::env;
 //use iron::prelude::*;
 //use iron::status;
 
@@ -20,11 +21,27 @@ fn main() {
     //
     //    let _server = Iron::new(hello_world).http("localhost:3000").unwrap();
     //    println!("On 3000");
-    chunk()
+
+    chunk(&time::now().tm_nsec.to_string());
 }
 
-fn chunk() {
+fn write_chunks() {
+    //    println!("Starting writes to S3: {}", canonical_filename.to_string_lossy());
+
+
+    //    println!("Finishing writes to S3: {}", canonical_filename.to_string_lossy());
+}
+
+fn chunk(output_directory: &str) {
     let args = parse_args();
+
+    let output_dir = env::current_dir()
+        .expect("Can not determine current directory")
+        .join(output_directory);
+
+    fs::create_dir(
+        &output_dir
+    ).expect("Can not create tmp working directory");
 
     let canonical_filename = fs::canonicalize(
         args.file_name()
@@ -35,9 +52,13 @@ fn chunk() {
         .expect("No input file extension found")
         .to_string_lossy()
         .into_owned();
-    println!("Starting: {}", canonical_filename.to_string_lossy());
 
-    assert!(1 == 2);
+        println!("Starting chunking: {}", canonical_filename.to_string_lossy());
+
+    let mut output_dir_formatted = output_dir
+        .join("output-%03d");
+
+    output_dir_formatted.set_extension(file_ext);
 
     let output = Command::new("ffmpeg")
         .args(&["-i", &canonical_filename.to_string_lossy().into_owned()])
@@ -46,9 +67,9 @@ fn chunk() {
         .args(&["-segment_time", "20"])
         .args(&["-reset_timestamps", "1"])
         .args(&["-map", "0"])
-        .arg(&(String::from("output-%03d.") + &file_ext))
+        .arg(output_dir_formatted.to_string_lossy().into_owned())
         .output()
-        .expect("failed to execute process");
+        .expect("failed to executse process");
 
     let package = OutputPackage {
         stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -56,7 +77,7 @@ fn chunk() {
         status: output.status
     };
 
-    println!("Finishing: {}", canonical_filename.to_string_lossy());
+    println!("Finishing chunking: {}", canonical_filename.to_string_lossy());
 }
 
 fn parse_args() -> PathBuf {
@@ -64,4 +85,3 @@ fn parse_args() -> PathBuf {
 
     return PathBuf::from(args[1].to_owned());
 }
-
