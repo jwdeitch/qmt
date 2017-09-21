@@ -1,17 +1,29 @@
 extern crate iron;
 extern crate time;
+extern crate rusoto_core;
+extern crate rusoto_s3;
 extern crate multipart;
 
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
-//use mime::Mime;
 use std::env;
-
+use rusoto_s3::{S3, S3Client, PutObjectRequest};
+use rusoto_core::{DefaultCredentialsProvider, Region};
+use rusoto_core::default_tls_client;
 use std::io::Read;
 use multipart::server::{Multipart, Entries, SaveResult, SavedFile};
 use iron::prelude::*;
 use iron::status;
+
+struct Job {
+    original_upload_dir: PathBuf,
+    upload_id: String,
+    output_dir: PathBuf,
+    cononical_name: PathBuf,
+    file_ext: String,
+    original_upload_file: PathBuf
+}
 
 struct OutputPackage {
     stdout: String,
@@ -20,8 +32,8 @@ struct OutputPackage {
 }
 
 fn main() {
-        let _server = Iron::new(process_request).http("localhost:3000").unwrap();
-        println!("On 3000");
+    let _server = Iron::new(process_request).http("localhost:3000").unwrap();
+    println!("On 3000");
 }
 
 fn process_request(request: &mut Request) -> IronResult<Response> {
@@ -58,12 +70,9 @@ fn process_entries(entries: Entries, upload_id: &str) -> IronResult<Response> {
         println!("[{}] Field {:?} has {} files:", upload_id, name, files.len());
 
         for file in files {
-            let working_dir = create_working_dirs(upload_id);
-            let original_upload = working_dir.join("original").join(&file.filename.expect("Unable to find original filename"));
-            fs::copy(file.path, original_upload.clone());
-
-            println!("[{}] {:?}", upload_id, original_upload);
-            chunk(original_upload, working_dir.join("chuncks"));
+            let job = create_working_dirs(upload_id, file);
+            println!("[{}] {:?}", upload_id, job.original_upload_dir);
+            chunk(job);
         }
     }
 
@@ -71,39 +80,54 @@ fn process_entries(entries: Entries, upload_id: &str) -> IronResult<Response> {
 }
 
 
-fn write_chunks() {
-//        println!("Starting writes to S3: {}", canonical_filename.to_string_lossy());
+fn write_chunks(job: Job) {
+            println!("Starting writes to S3: {}", job.cononical_name.to_string_lossy());
+        let provider = DefaultCredentialsProvider::new().unwrap();
+        let client = S3Client::new(
+            default_tls_client().expect("Unable to retrieve default TLS client"),
+            DefaultCredentialsProvider::new().expect("Unable to retrieve AWS credentials"),
+            Region::UsEast1
+        );
 
+        for chunk in fs::read_dir(job.output_dir).expect("cannot read chunk directory") {
+            let chunk_path = chunk.expect("cannot enumerate chunk path").path().display();
+            println!("Uploading: {}", chunk_path);
+            let mut f = fs::File::open(chunk_path.to_string()).unwrap();
+            let mut contents: Vec<u8> = Vec::new();
+            match f.read_to_end(&mut contents) {
+                Err(why) => panic!("Error opening file to send to S3: {}", why),
+                Ok(_) => {
+                    let req = PutObjectRequest {
+                        bucket: String::from("cdn.rsa.pub"),
+                        key: "t/" + job.upload_id.to_owned() + "/" + chunk.path().expect("Cannot deduce chunk path").file_name(),
+                        body: Some(contents),
+                        ..Default::default()
+                    };
+                    let result = client.put_object(&req);
+                    println!("{:#?}", result);
+                }
+            }
+        }
 
-//        println!("Finishing writes to S3: {}", canonical_filename.to_string_lossy());
+    //        println!("Finishing writes to S3: {}", canonical_filename.to_string_lossy());
 }
 
-fn chunk(original_upload: PathBuf, output_dir: PathBuf) {
-    let canonical_filename = fs::canonicalize(
-        original_upload.file_name()
-            .expect("No input filename found"))
-        .expect("Can't canonicalize input argument");
+fn chunk(job: Job) {
+    println!("Starting chunking: {}", job.cononical_name.to_string_lossy());
 
-    let file_ext = &original_upload.extension()
-        .expect("No input file extension found")
-        .to_string_lossy()
-        .into_owned();
-
-        println!("Starting chunking: {}", canonical_filename.to_string_lossy());
-
-    let mut output_dir_formatted = output_dir
+    let mut output_dir_formatted = job.output_dir
         .join("output-%03d");
 
-    output_dir_formatted.set_extension(file_ext);
+    output_dir_formatted.set_extension(&job.file_ext);
 
     let output = Command::new("ffmpeg")
-        .args(&["-i", &canonical_filename.to_string_lossy().into_owned()])
+        .args(&["-i", &job.cononical_name.to_string_lossy().into_owned()])
         .args(&["-c", "copy"])
         .args(&["-f", "segment"])
         .args(&["-segment_time", "20"])
         .args(&["-reset_timestamps", "1"])
         .args(&["-map", "0"])
-        .arg(output_dir_formatted.to_string_lossy().into_owned())
+        .arg(job.output_dir.to_string_lossy().into_owned())
         .output()
         .expect("failed to execute process");
 
@@ -113,7 +137,8 @@ fn chunk(original_upload: PathBuf, output_dir: PathBuf) {
         status: output.status
     };
 
-    println!("Finishing chunking: {}", canonical_filename.to_string_lossy());
+    write_chunks(job);
+    println!("Finishing chunking: {}", job.cononical_name.to_string_lossy());
 }
 
 fn parse_args() -> PathBuf {
@@ -122,23 +147,42 @@ fn parse_args() -> PathBuf {
     return PathBuf::from(args[1].to_owned());
 }
 
-fn create_working_dirs(upload_id: &str) -> PathBuf {
-
-    let original_upload_dir = env::current_dir()
+fn create_working_dirs(upload_id: &str, uploaded_file: SavedFile) -> Job {
+    let job_working_dir = env::current_dir()
         .expect("Can not determine current directory").join(upload_id);
 
-    fs::create_dir(
-        &original_upload_dir
+    let original_dir = job_working_dir.join("original");
+    let chunk_dir = job_working_dir.join("chunks");
+
+    fs::create_dir_all(
+        &original_dir
     ).expect("Can not create tmp working directory");
 
     fs::create_dir(
-        &original_upload_dir.join("original")
+        &chunk_dir
     ).expect("Can not create tmp working directory");
 
-    fs::create_dir(
-        &original_upload_dir.join("chuncks")
-    ).expect("Can not create tmp working directory");
+    fs::copy(&uploaded_file.path, &original_dir);
 
-    return original_upload_dir;
+    let original_uploaded_file = original_dir
+        .join(uploaded_file.filename.expect("Unable to find original filename"));
 
+    let cononical_name = fs::canonicalize(
+        original_uploaded_file.file_name()
+            .expect("No input filename found"))
+        .expect("Can't canonicalize input argument");
+
+    let file_ext = original_uploaded_file.extension()
+        .expect("No input file extension found")
+        .to_string_lossy()
+        .into_owned();
+
+    return Job {
+        original_upload_dir: original_dir,
+        output_dir: chunk_dir,
+        cononical_name: cononical_name,
+        file_ext: file_ext,
+        original_upload_file: original_uploaded_file,
+        upload_id: String::from(upload_id)
+    };
 }
