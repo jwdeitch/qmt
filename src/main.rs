@@ -47,7 +47,6 @@ fn process_request(request: &mut Request) -> IronResult<Response> {
             match multipart.save().temp() {
                 SaveResult::Full(entries) => process_entries(entries, upload_id),
                 SaveResult::Partial(entries, reason) => {
-                    process_entries(entries.keep_partial(), upload_id)?;
                     Err(IronError::new(reason.unwrap_err(), status::InternalServerError))
                 }
                 SaveResult::Error(error) => Err(IronError::new(error, status::InternalServerError)),
@@ -80,36 +79,36 @@ fn process_entries(entries: Entries, upload_id: &str) -> IronResult<Response> {
 }
 
 
-fn write_chunks(job: Job) {
-            println!("Starting writes to S3: {}", job.cononical_name.to_string_lossy());
-        let provider = DefaultCredentialsProvider::new().unwrap();
-        let client = S3Client::new(
-            default_tls_client().expect("Unable to retrieve default TLS client"),
-            DefaultCredentialsProvider::new().expect("Unable to retrieve AWS credentials"),
-            Region::UsEast1
-        );
+fn write_chunks(job: &Job) {
+    println!("Starting writes to S3: {}", job.cononical_name.to_string_lossy());
+    let provider = DefaultCredentialsProvider::new().unwrap();
+    let client = S3Client::new(
+        default_tls_client().expect("Unable to retrieve default TLS client"),
+        DefaultCredentialsProvider::new().expect("Unable to retrieve AWS credentials"),
+        Region::UsEast1
+    );
 
-        for chunk in fs::read_dir(job.output_dir).expect("cannot read chunk directory") {
-            let chunk_path = chunk.expect("cannot enumerate chunk path").path().display();
-            println!("Uploading: {}", chunk_path);
-            let mut f = fs::File::open(chunk_path.to_string()).unwrap();
-            let mut contents: Vec<u8> = Vec::new();
-            match f.read_to_end(&mut contents) {
-                Err(why) => panic!("Error opening file to send to S3: {}", why),
-                Ok(_) => {
-                    let req = PutObjectRequest {
-                        bucket: String::from("cdn.rsa.pub"),
-                        key: "t/" + job.upload_id.to_owned() + "/" + chunk.path().expect("Cannot deduce chunk path").file_name(),
-                        body: Some(contents),
-                        ..Default::default()
-                    };
-                    let result = client.put_object(&req);
-                    println!("{:#?}", result);
-                }
+    for chunk in fs::read_dir(&job.output_dir).expect("cannot read chunk directory") {
+        let chunk_path = chunk.expect("cannot enumerate chunk path").path();
+        println!("Uploading: {}", chunk_path.display());
+        let mut f = fs::File::open(chunk_path.display().to_string()).unwrap();
+        let mut contents: Vec<u8> = Vec::new();
+        match f.read_to_end(&mut contents) {
+            Err(why) => panic!("Error opening file to send to S3: {}", why),
+            Ok(_) => {
+                let req = PutObjectRequest {
+                    bucket: String::from("cdn.rsa.pub"),
+                    key: "t/".to_string() + &job.upload_id + "/" + &chunk_path.file_name().expect("Cannot deduce chunk filename").to_string_lossy().to_owned(),
+                    body: Some(contents),
+                    ..Default::default()
+                };
+                let result = client.put_object(&req);
+                println!("{:#?}", result);
             }
         }
+    }
 
-    //        println!("Finishing writes to S3: {}", canonical_filename.to_string_lossy());
+    println!("Finishing writes to S3: {}", job.cononical_name.to_string_lossy());
 }
 
 fn chunk(job: Job) {
@@ -137,7 +136,7 @@ fn chunk(job: Job) {
         status: output.status
     };
 
-    write_chunks(job);
+//    write_chunks(&job);
     println!("Finishing chunking: {}", job.cononical_name.to_string_lossy());
 }
 
@@ -162,10 +161,17 @@ fn create_working_dirs(upload_id: &str, uploaded_file: SavedFile) -> Job {
         &chunk_dir
     ).expect("Can not create tmp working directory");
 
-    fs::copy(&uploaded_file.path, &original_dir);
+    let original_upload_filename = uploaded_file
+        .filename
+        .expect("Unable to deduce original filename")
+        .to_owned();
+
+    fs::copy(&uploaded_file.path, &original_dir
+        .join(&original_upload_filename)
+    ).expect("failed copying uploaded file to working dir");
 
     let original_uploaded_file = original_dir
-        .join(uploaded_file.filename.expect("Unable to find original filename"));
+        .join(&original_upload_filename);
 
     let cononical_name = fs::canonicalize(
         original_uploaded_file.file_name()
