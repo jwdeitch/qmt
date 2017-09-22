@@ -38,12 +38,8 @@ fn main() {
 
 fn process_request(request: &mut Request) -> IronResult<Response> {
     let upload_id = &time::now().tm_nsec.to_string();
-    // Getting a multipart reader wrapper
     match Multipart::from_request(request) {
         Ok(mut multipart) => {
-            // Fetching all data and processing it.
-            // save().temp() reads the request fully, parsing all fields and saving all files
-            // in a new temporary directory under the OS temporary directory.
             match multipart.save().temp() {
                 SaveResult::Full(entries) => process_entries(entries, upload_id),
                 SaveResult::Partial(entries, reason) => {
@@ -58,8 +54,6 @@ fn process_request(request: &mut Request) -> IronResult<Response> {
     }
 }
 
-/// Processes saved entries from multipart request.
-/// Returns an OK response or an error.
 fn process_entries(entries: Entries, upload_id: &str) -> IronResult<Response> {
     for (name, field) in entries.fields {
         println!("[{}] Field {:?}: {:?}", upload_id, name, field);
