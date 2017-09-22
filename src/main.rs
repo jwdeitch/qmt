@@ -112,7 +112,7 @@ fn write_chunks(job: &Job) {
 }
 
 fn chunk(job: Job) {
-    println!("Starting chunking: {}", job.cononical_name.to_string_lossy());
+    println!("[{}] Starting chunking: {}", &job.upload_id, job.cononical_name.to_string_lossy());
 
     let mut output_dir_formatted = job.output_dir
         .join("output-%03d");
@@ -126,9 +126,15 @@ fn chunk(job: Job) {
         .args(&["-segment_time", "20"])
         .args(&["-reset_timestamps", "1"])
         .args(&["-map", "0"])
-        .arg(job.output_dir.to_string_lossy().into_owned())
+        .arg(&output_dir_formatted)
         .output()
         .expect("failed to execute process");
+
+    println!("[{}] {} -> {:?}",
+             &job.upload_id,
+             &job.cononical_name.to_string_lossy().into_owned(),
+             &output_dir_formatted
+    );
 
     let package = OutputPackage {
         stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -136,8 +142,8 @@ fn chunk(job: Job) {
         status: output.status
     };
 
-//    write_chunks(&job);
-    println!("Finishing chunking: {}", job.cononical_name.to_string_lossy());
+    write_chunks(&job);
+    println!("[{}] Finishing chunking: {}", &job.upload_id, job.cononical_name.to_string_lossy());
 }
 
 fn parse_args() -> PathBuf {
