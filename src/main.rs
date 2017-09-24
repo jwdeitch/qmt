@@ -4,10 +4,10 @@ extern crate rusoto_core;
 extern crate rusoto_s3;
 extern crate multipart;
 
-use std::process::Command;
-use std::path::PathBuf;
+mod chunking;
+
 use std::fs;
-use std::env;
+use std::thread;
 use rusoto_s3::{S3, S3Client, PutObjectRequest};
 use rusoto_core::{DefaultCredentialsProvider, Region};
 use rusoto_core::default_tls_client;
@@ -15,21 +15,6 @@ use std::io::Read;
 use multipart::server::{Multipart, Entries, SaveResult, SavedFile};
 use iron::prelude::*;
 use iron::status;
-
-struct Job {
-    original_upload_dir: PathBuf,
-    upload_id: String,
-    output_dir: PathBuf,
-    cononical_name: PathBuf,
-    file_ext: String,
-    original_upload_file: PathBuf
-}
-
-struct OutputPackage {
-    stdout: String,
-    stderr: String,
-    status: std::process::ExitStatus
-}
 
 fn main() {
     let _server = Iron::new(process_request).http("localhost:3000").unwrap();
@@ -63,9 +48,9 @@ fn process_entries(entries: Entries, upload_id: &str) -> IronResult<Response> {
         println!("[{}] Field {:?} has {} files:", upload_id, name, files.len());
 
         for file in files {
-            let job = create_working_dirs(upload_id, file);
+            let job = chunking::create_working_dirs(upload_id, file);
             println!("[{}] {:?}", upload_id, job.original_upload_dir);
-            chunk(job);
+            chunking::chunk(job);
         }
     }
 
@@ -73,7 +58,7 @@ fn process_entries(entries: Entries, upload_id: &str) -> IronResult<Response> {
 }
 
 
-fn write_chunks(job: &Job) {
+fn write_chunks(job: &chunking::Job) {
     println!("Starting writes to S3: {}", job.cononical_name.to_string_lossy());
     let provider = DefaultCredentialsProvider::new().unwrap();
     let client = S3Client::new(
@@ -103,92 +88,4 @@ fn write_chunks(job: &Job) {
     }
 
     println!("Finishing writes to S3: {}", job.cononical_name.to_string_lossy());
-}
-
-fn chunk(job: Job) {
-    println!("[{}] Starting chunking: {}", &job.upload_id, job.cononical_name.to_string_lossy());
-
-    let mut output_dir_formatted = job.output_dir
-        .join("output-%03d");
-
-    output_dir_formatted.set_extension(&job.file_ext);
-
-    let output = Command::new("ffmpeg")
-        .args(&["-i", &job.cononical_name.to_string_lossy().into_owned()])
-        .args(&["-c", "copy"])
-        .args(&["-f", "segment"])
-        .args(&["-segment_time", "20"])
-        .args(&["-reset_timestamps", "1"])
-        .args(&["-map", "0"])
-        .arg(&output_dir_formatted)
-        .output()
-        .expect("failed to execute process");
-
-    println!("[{}] {} -> {:?}",
-             &job.upload_id,
-             &job.cononical_name.to_string_lossy().into_owned(),
-             &output_dir_formatted
-    );
-
-    let package = OutputPackage {
-        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-        status: output.status
-    };
-
-    write_chunks(&job);
-    println!("[{}] Finishing chunking: {}", &job.upload_id, job.cononical_name.to_string_lossy());
-}
-
-fn parse_args() -> PathBuf {
-    let args: Vec<String> = env::args().collect();
-
-    return PathBuf::from(args[1].to_owned());
-}
-
-fn create_working_dirs(upload_id: &str, uploaded_file: SavedFile) -> Job {
-    let job_working_dir = env::current_dir()
-        .expect("Can not determine current directory").join(upload_id);
-
-    let original_dir = job_working_dir.join("original");
-    let chunk_dir = job_working_dir.join("chunks");
-
-    fs::create_dir_all(
-        &original_dir
-    ).expect("Can not create tmp working directory");
-
-    fs::create_dir(
-        &chunk_dir
-    ).expect("Can not create tmp working directory");
-
-    let original_upload_filename = uploaded_file
-        .filename
-        .expect("Unable to deduce original filename")
-        .to_owned();
-
-    fs::copy(&uploaded_file.path, &original_dir
-        .join(&original_upload_filename)
-    ).expect("failed copying uploaded file to working dir");
-
-    let original_uploaded_file = original_dir
-        .join(&original_upload_filename);
-
-    let cononical_name = fs::canonicalize(
-        original_uploaded_file.file_name()
-            .expect("No input filename found"))
-        .expect("Can't canonicalize input argument");
-
-    let file_ext = original_uploaded_file.extension()
-        .expect("No input file extension found")
-        .to_string_lossy()
-        .into_owned();
-
-    return Job {
-        original_upload_dir: original_dir,
-        output_dir: chunk_dir,
-        cononical_name: cononical_name,
-        file_ext: file_ext,
-        original_upload_file: original_uploaded_file,
-        upload_id: String::from(upload_id)
-    };
 }
