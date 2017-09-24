@@ -17,7 +17,7 @@ pub struct Job {
     pub original_upload_file: PathBuf
 }
 
-pub fn chunk(job: Job) {
+pub fn chunk(job: &Job) {
     println!("[{}] Starting chunking: {}", &job.upload_id, job.cononical_name.to_string_lossy());
 
     let mut output_dir_formatted = job.output_dir
@@ -48,7 +48,6 @@ pub fn chunk(job: Job) {
         status: output.status
     };
 
-//    write_chunks(&job);
     println!("[{}] Finishing chunking: {}", &job.upload_id, job.cononical_name.to_string_lossy());
 }
 
