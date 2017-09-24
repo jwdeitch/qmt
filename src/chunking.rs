@@ -12,13 +12,13 @@ pub struct Job {
     pub original_upload_dir: PathBuf,
     pub upload_id: String,
     pub output_dir: PathBuf,
-    pub cononical_name: PathBuf,
+    pub canonical_name: PathBuf,
     pub file_ext: String,
     pub original_upload_file: PathBuf
 }
 
 pub fn chunk(job: &Job) {
-    println!("[{}] Starting chunking: {}", &job.upload_id, job.cononical_name.to_string_lossy());
+    println!("[{}] Starting chunking: {}", &job.upload_id, job.canonical_name.to_string_lossy());
 
     let mut output_dir_formatted = job.output_dir
         .join("output-%03d");
@@ -26,7 +26,7 @@ pub fn chunk(job: &Job) {
     output_dir_formatted.set_extension(&job.file_ext);
 
     let output = std::process::Command::new("ffmpeg")
-        .args(&["-i", &job.cononical_name.to_string_lossy().into_owned()])
+        .args(&["-i", &job.canonical_name.to_string_lossy().into_owned()])
         .args(&["-c", "copy"])
         .args(&["-f", "segment"])
         .args(&["-segment_time", "20"])
@@ -38,7 +38,7 @@ pub fn chunk(job: &Job) {
 
     println!("[{}] {} -> {:?}",
              &job.upload_id,
-             &job.cononical_name.to_string_lossy().into_owned(),
+             &job.canonical_name.to_string_lossy().into_owned(),
              &output_dir_formatted
     );
 
@@ -48,7 +48,7 @@ pub fn chunk(job: &Job) {
         status: output.status
     };
 
-    println!("[{}] Finishing chunking: {}", &job.upload_id, job.cononical_name.to_string_lossy());
+    println!("[{}] Finishing chunking: {}", &job.upload_id, job.canonical_name.to_string_lossy());
 }
 
 fn parse_args() -> PathBuf {
@@ -84,7 +84,7 @@ pub fn create_working_dirs(upload_id: &str, uploaded_file: SavedFile) -> Job {
     let original_upload_file = original_upload_dir
         .join(&original_upload_filename);
 
-    let cononical_name = std::fs::canonicalize(
+    let canonical_name = std::fs::canonicalize(
         original_upload_file.file_name()
             .expect("No input filename found"))
         .expect("Can't canonicalize input argument");
@@ -97,7 +97,7 @@ pub fn create_working_dirs(upload_id: &str, uploaded_file: SavedFile) -> Job {
     return Job {
         original_upload_dir,
         output_dir,
-        cononical_name,
+        canonical_name,
         file_ext,
         original_upload_file,
         upload_id: String::from(upload_id)
