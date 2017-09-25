@@ -16,7 +16,7 @@ pub fn write_chunks(job: &Job) {
         .map(|r| r.expect("cannot enumerate chunk path"))
         .collect();
     paths.sort_by_key(|dir| dir.path());
-    for chunk in paths {
+    for chunk in &paths {
         let chunk_path = chunk.path();
         println!("Uploading: {}", chunk_path.display());
         let mut f = fs::File::open(chunk_path.display().to_string()).unwrap();
@@ -47,7 +47,12 @@ pub fn write_chunks(job: &Job) {
     }
 
 
+    wait_for_chunking_finish(&job, &paths.last().expect("Unable to dude last element of chunk slice"));
     println!("Finishing writes to S3: {}", job.canonical_name.to_string_lossy());
 }
 
-pub fn wait_for_chunking_finish() {}
+fn wait_for_chunking_finish(job: &Job, file_id: &fs::DirEntry) {
+
+
+
+}
