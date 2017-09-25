@@ -12,8 +12,9 @@ use iron::prelude::*;
 use iron::status;
 
 fn main() {
-    let _server = Iron::new(process_request).http("localhost:3000").unwrap();
-    println!("On 3000");
+    s3::wait_for_chunking_finish()
+//    let _server = Iron::new(process_request).http("localhost:3000").unwrap();
+//    println!("On 3000");
 }
 
 fn process_request(request: &mut Request) -> IronResult<Response> {

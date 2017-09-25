@@ -4,14 +4,20 @@ use rusoto_s3::{S3, S3Client, PutObjectRequest};
 use rusoto_core::{DefaultCredentialsProvider, Region};
 use rusoto_core::default_tls_client;
 use std::thread;
+use std;
 use std::fs;
 use std::io::Read;
 
 pub fn write_chunks(job: &Job) {
     println!("Starting writes to S3: {}", job.canonical_name.to_string_lossy());
     let mut put_children = vec![];
-    for chunk in fs::read_dir(&job.output_dir).expect("cannot read chunk directory") {
-        let chunk_path = chunk.expect("cannot enumerate chunk path").path();
+    let mut paths: Vec<_> = fs::read_dir(&job.output_dir)
+        .expect("cannot read chunk directory")
+        .map(|r| r.expect("cannot enumerate chunk path"))
+        .collect();
+    paths.sort_by_key(|dir| dir.path());
+    for chunk in paths {
+        let chunk_path = chunk.path();
         println!("Uploading: {}", chunk_path.display());
         let mut f = fs::File::open(chunk_path.display().to_string()).unwrap();
         let mut contents: Vec<u8> = Vec::new();
@@ -43,3 +49,5 @@ pub fn write_chunks(job: &Job) {
 
     println!("Finishing writes to S3: {}", job.canonical_name.to_string_lossy());
 }
+
+pub fn wait_for_chunking_finish() {}
