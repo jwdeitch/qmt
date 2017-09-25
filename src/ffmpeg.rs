@@ -51,12 +51,6 @@ pub fn chunk(job: &Job) {
     println!("[{}] Finishing chunking: {}", &job.upload_id, job.canonical_name.to_string_lossy());
 }
 
-fn parse_args() -> PathBuf {
-    let args: Vec<String> = std::env::args().collect();
-
-    return PathBuf::from(args[1].to_owned());
-}
-
 pub fn create_working_dirs(upload_id: &str, uploaded_file: SavedFile) -> Job {
     let job_working_dir = std::env::current_dir()
         .expect("Can not determine current directory").join(upload_id);

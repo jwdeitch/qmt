@@ -4,7 +4,7 @@ extern crate rusoto_core;
 extern crate rusoto_s3;
 extern crate multipart;
 
-mod chunking;
+mod ffmpeg;
 mod s3;
 
 use multipart::server::{Multipart, Entries, SaveResult, SavedFile};
@@ -43,9 +43,9 @@ fn process_entries(entries: Entries, upload_id: &str) -> IronResult<Response> {
         println!("[{}] Field {:?} has {} files:", upload_id, name, files.len());
 
         for file in files {
-            let job = chunking::create_working_dirs(upload_id, file);
+            let job = ffmpeg::create_working_dirs(upload_id, file);
             println!("[{}] {:?}", upload_id, job.original_upload_dir);
-            chunking::chunk(&job);
+            ffmpeg::chunk(&job);
             s3::write_chunks(&job);
         }
     }

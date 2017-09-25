@@ -1,4 +1,4 @@
-use chunking::Job;
+use ffmpeg::Job;
 
 use rusoto_s3::{S3, S3Client, PutObjectRequest};
 use rusoto_core::{DefaultCredentialsProvider, Region};
@@ -9,7 +9,7 @@ use std::io::Read;
 
 pub fn write_chunks(job: &Job) {
     println!("Starting writes to S3: {}", job.canonical_name.to_string_lossy());
-    let mut children = vec![];
+    let mut put_children = vec![];
     for chunk in fs::read_dir(&job.output_dir).expect("cannot read chunk directory") {
         let chunk_path = chunk.expect("cannot enumerate chunk path").path();
         println!("Uploading: {}", chunk_path.display());
@@ -24,7 +24,7 @@ pub fn write_chunks(job: &Job) {
                     body: Some(contents),
                     ..Default::default()
                 };
-                children.push(thread::spawn(move || {
+                put_children.push(thread::spawn(move || {
                     let provider = DefaultCredentialsProvider::new().unwrap();
                     let client = S3Client::new(
                         default_tls_client().expect("Unable to retrieve default TLS client"),
@@ -36,10 +36,9 @@ pub fn write_chunks(job: &Job) {
             }
         }
     }
-    for child in children {
-        let _ = child.join();
+    for PutChild in put_children {
+        let _ = PutChild.join();
     }
-
 
 
     println!("Finishing writes to S3: {}", job.canonical_name.to_string_lossy());
