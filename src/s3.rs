@@ -52,7 +52,18 @@ pub fn write_chunks(job: &Job) {
 }
 
 fn wait_for_chunking_finish(job: &Job, file_id: &fs::DirEntry) {
-
-
-
+    loop {
+        let provider = DefaultCredentialsProvider::new().unwrap();
+        let client = S3Client::new(
+            default_tls_client().expect("Unable to retrieve default TLS client"),
+            DefaultCredentialsProvider::new().expect("Unable to retrieve AWS credentials"),
+            Region::UsEast1
+        );
+        client.head_object(&PutObjectRequest {
+            bucket: String::from("cdn.rsa.pub"),
+            key: "t/".to_string() + &job.upload_id + "/" + &chunk_path.file_name().expect("Cannot deduce chunk filename").to_string_lossy().to_owned(),
+            body: Some(contents),
+            ..Default::default()
+        });
+    };
 }
